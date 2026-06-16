@@ -14,7 +14,7 @@ browse their dishes, and book authentic home-cooked dining experiences.
 
 **[Get it on Google Play →](https://play.google.com/store/apps/details?id=io.potluckhub.app)**
 
-[![PotLuckHub on the Google Play Store](screenshots/play-store-listing.png)](https://play.google.com/store/apps/details?id=io.potluckhub.app)
+[![PotLuckHub on the Google Play Store](docs/play-store-listing.png)](https://play.google.com/store/apps/details?id=io.potluckhub.app)
 
 > Live on the Google Play Store — [play.google.com/store/apps/details?id=io.potluckhub.app](https://play.google.com/store/apps/details?id=io.potluckhub.app)
 
