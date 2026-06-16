@@ -4,11 +4,18 @@
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202024.12-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
 [![Material 3](https://img.shields.io/badge/Material%203-Design-757575?style=flat-square&logo=materialdesign&logoColor=white)](https://m3.material.io/)
 [![minSdk](https://img.shields.io/badge/minSdk-26-3DDC84?style=flat-square&logo=android&logoColor=white)](https://developer.android.com)
-[![Play Store](https://img.shields.io/badge/Play%20Store-Submitted-414141?style=flat-square&logo=googleplay)](https://play.google.com/)
+[![Play Store](https://img.shields.io/badge/Play%20Store-PotLuckHub-414141?style=flat-square&logo=googleplay)](https://play.google.com/store/apps/details?id=io.potluckhub.app)
 
-The native **Kotlin + Jetpack Compose** Android app for [**Potluck**](https://potluckhub.io) —
+The official native **Kotlin + Jetpack Compose** Android app for [**Potluck — potluckhub.io**](https://potluckhub.io/) —
 a Singapore marketplace connecting home chefs with food lovers. Discover talented local cooks,
 browse their dishes, and book authentic home-cooked dining experiences.
+
+### 📲 Download
+
+**[Get it on Google Play →](https://play.google.com/store/apps/details?id=io.potluckhub.app)**
+
+> The app is rolling out to production on the Google Play Store. If the listing isn't live in your
+> region yet, the link will become available once the review completes.
 
 > Sister app to the [native iOS app](https://github.com/alfredang/potluckapp) and the
 > [Potluck web platform](https://github.com/alfredang/potluck). Talks directly to the
