@@ -14,8 +14,9 @@ browse their dishes, and book authentic home-cooked dining experiences.
 
 **[Get it on Google Play →](https://play.google.com/store/apps/details?id=io.potluckhub.app)**
 
-> The app is rolling out to production on the Google Play Store. If the listing isn't live in your
-> region yet, the link will become available once the review completes.
+[![PotLuckHub on the Google Play Store](screenshots/play-store-listing.png)](https://play.google.com/store/apps/details?id=io.potluckhub.app)
+
+> Live on the Google Play Store — [play.google.com/store/apps/details?id=io.potluckhub.app](https://play.google.com/store/apps/details?id=io.potluckhub.app)
 
 > Sister app to the [native iOS app](https://github.com/alfredang/potluckapp) and the
 > [Potluck web platform](https://github.com/alfredang/potluck). Talks directly to the
