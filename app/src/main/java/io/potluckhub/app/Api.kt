@@ -130,6 +130,21 @@ object Api {
 
     suspend fun me() = request("GET", "auth/me", User.serializer(), authenticated = true)
 
+    suspend fun deleteAccount() {
+        val root = try {
+            json.parseToString(raw("DELETE", "auth/account", authenticated = true))
+        } catch (e: ApiException) {
+            throw e
+        } catch (e: Exception) {
+            throw ApiException("Could not read the server response.")
+        }
+        val success = (root["success"] as? JsonPrimitive)?.content == "true"
+        if (!success) {
+            val msg = (root["error"] as? JsonObject)?.get("message")?.jsonPrimitive?.contentOrNull
+            throw ApiException(msg ?: "Something went wrong.")
+        }
+    }
+
     suspend fun myBookings() =
         request("GET", "bookings", ListSerializer(Booking.serializer()), authenticated = true)
 

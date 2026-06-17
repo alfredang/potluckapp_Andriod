@@ -82,7 +82,7 @@ The app points at the production API out of the box, so chefs and dishes load im
 ```
 
 - **Application ID:** `io.potluckhub.app`
-- **Version:** 1.0.4 (versionCode 100)
+- **Version:** 1.1 (versionCode 110)
 
 ## License
 

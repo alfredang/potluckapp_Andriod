@@ -57,6 +57,16 @@ class AuthViewModel(app: Application) : AndroidViewModel(app) {
         currentUser = null
     }
 
+    suspend fun deleteAccount() {
+        working = true
+        try {
+            Api.deleteAccount()
+            signOut()
+        } finally {
+            working = false
+        }
+    }
+
     private fun persist(result: AuthResult) {
         prefs.edit()
             .putString(ACCESS, result.accessToken)

@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -15,10 +16,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Verified
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,15 +36,14 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 
 enum class Cuisine(val slug: String, val label: String, val emoji: String) {
-    Chinese("chinese", "Chinese", "🥟"),
-    Western("western", "Western", "🍝"),
-    Thai("thai", "Thai", "🍜"),
-    Japanese("japanese", "Japanese", "🍱"),
-    Korean("korean", "Korean", "🍲"),
     Malay("malay", "Malay", "🍛"),
+    Chinese("chinese", "Chinese", "🥟"),
     Indian("indian", "Indian", "🍛"),
     Halal("halal", "Halal", "🥘"),
     Vegetarian("vegetarian", "Vegetarian", "🥗"),
+    Japanese("japanese", "Japanese", "🍱"),
+    Korean("korean", "Korean", "🍜"),
+    Western("western", "Western", "🍝"),
 }
 
 @Composable
@@ -99,6 +102,7 @@ fun ExploreScreen(onChef: (Chef) -> Unit) {
                 contentPadding = PaddingValues(vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
+                item { ExploreHero() }
                 item {
                     OutlinedTextField(
                         value = search, onValueChange = { search = it },
@@ -157,6 +161,47 @@ fun ExploreScreen(onChef: (Chef) -> Unit) {
 }
 
 @Composable
+private fun ExploreHero() {
+    Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                "Home-cooked meals,\nfrom real Singapore kitchens.",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = Brand.Ink,
+            )
+            Text(
+                "Discover talented home chefs in your neighbourhood. Book a seat at their table or have them cook a private dinner at yours.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Brand.MutedInk,
+            )
+        }
+        Row(
+            Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            TrustBadge(Icons.Filled.Verified, "Identity-verified chefs")
+            TrustBadge(Icons.Filled.Restaurant, "Halal & dietary-friendly")
+            TrustBadge(Icons.Filled.CheckCircle, "Secure SGD payments")
+        }
+    }
+}
+
+@Composable
+private fun TrustBadge(icon: ImageVector, text: String) {
+    Surface(shape = RoundedCornerShape(50), color = Color.White, shadowElevation = 2.dp) {
+        Row(
+            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Icon(icon, null, tint = Brand.Teal, modifier = Modifier.size(14.dp))
+            Text(text, color = Brand.Ink, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+
+@Composable
 private fun FeaturedChefCard(chef: Chef, onChef: (Chef) -> Unit) {
     Card(Modifier.width(220.dp).clickable { onChef(chef) }) {
         RemoteImage(chef.user.avatarUrl, Modifier.fillMaxWidth().height(140.dp))
@@ -209,6 +254,8 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
     var reviews by remember { mutableStateOf<List<Review>>(emptyList()) }
     var error by remember { mutableStateOf<String?>(null) }
     var bookingMenu by remember { mutableStateOf<Menu?>(null) }
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(chefId) {
         runCatching {
@@ -217,17 +264,28 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
         }.onFailure { error = it.message }
     }
 
-    Scaffold(topBar = {
-        TopAppBar(
-            title = { Text(chef?.user?.fullName ?: "Chef") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back") } },
-        )
-    }) { pad ->
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(chef?.user?.fullName ?: "Chef") },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+            )
+        },
+        bottomBar = {
+            if (!chef?.menus.isNullOrEmpty()) {
+                BookingBar(title = "See the Menu") { scope.launch { listState.animateScrollToItem(2) } }
+            }
+        },
+    ) { pad ->
         val c = chef
         when {
             error != null && c == null -> Box(Modifier.padding(pad)) { CenteredMessage("Couldn't load chef", error!!) }
             c == null -> Box(Modifier.padding(pad)) { CenteredLoader() }
-            else -> LazyColumn(Modifier.padding(pad).fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
+            else -> LazyColumn(
+                Modifier.padding(pad).fillMaxSize(),
+                state = listState,
+                contentPadding = PaddingValues(bottom = 28.dp),
+            ) {
                 item { RemoteImage(c.user.avatarUrl, Modifier.fillMaxWidth().height(220.dp)) }
                 item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -246,7 +304,8 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
                     items(menus) { MenuRow(it) { bookingMenu = it } }
                 }
                 if (reviews.isNotEmpty()) {
-                    item { Spacer(Modifier.height(8.dp)); SectionHeader("Reviews", "${reviews.size} verified diners") }
+                    item { Spacer(Modifier.height(8.dp)); SectionHeader("Reviews", "What diners are saying") }
+                    item { RatingSummary(c.rating, c.reviewCount) }
                     items(reviews.take(8)) { ReviewCard(it) }
                 }
             }
@@ -287,10 +346,34 @@ private fun ReviewCard(review: Review) {
                     Text(review.customer?.fullName ?: "Diner", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
                     review.menu?.name?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk) }
                 }
-                RatingLabel(review.rating.toDouble())
+                RatingLabel(review.rating.toDouble(), maxStars = true)
             }
             review.title?.let { Text(it, fontWeight = FontWeight.SemiBold) }
             review.comment?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            review.chefResponse?.takeIf { it.isNotBlank() }?.let {
+                Surface(color = Brand.Teal.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("Chef's reply", style = MaterialTheme.typography.labelMedium, color = Brand.Teal, fontWeight = FontWeight.SemiBold)
+                        Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Ink)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RatingSummary(rating: Double, count: Int) {
+    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
+        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("%.1f".format(rating), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                RatingLabel(rating, maxStars = true)
+            }
+            Column {
+                Text("$count verified ${if (count == 1) "review" else "reviews"}", fontWeight = FontWeight.SemiBold)
+                Text("From diners who've eaten here", style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk)
+            }
         }
     }
 }
@@ -362,10 +445,15 @@ fun DishDetailScreen(menuId: String, auth: AuthViewModel, onBack: () -> Unit) {
     var booking by remember { mutableStateOf(false) }
     LaunchedEffect(menuId) { runCatching { menu = Api.menu(menuId) }.onFailure { error = it.message } }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(menu?.name ?: "Dish", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Filled.ArrowBack, "Back") } })
-    }) { pad ->
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text(menu?.name ?: "Dish", maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+        },
+        bottomBar = {
+            menu?.let { BookingBar(price = it.displayPrice, title = "Request This Dish") { booking = true } }
+        },
+    ) { pad ->
         val m = menu
         when {
             error != null && m == null -> Box(Modifier.padding(pad)) { CenteredMessage("Couldn't load dish", error!!) }
@@ -387,7 +475,6 @@ fun DishDetailScreen(menuId: String, auth: AuthViewModel, onBack: () -> Unit) {
                             Column { Text("Prepared by", style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk); Text(u.fullName, fontWeight = FontWeight.SemiBold) }
                         }
                     }
-                    PrimaryButton("Request This Dish", Modifier.padding(top = 4.dp)) { booking = true }
                 }
             }
         }

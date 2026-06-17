@@ -101,6 +101,9 @@ private fun SignedOut(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
 @Composable
 fun ProfileScreen(auth: AuthViewModel) {
     var showAuth by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     Scaffold(topBar = { TopAppBar(title = { Text("Profile", fontWeight = FontWeight.Bold) }) }) { pad ->
         Box(Modifier.padding(pad).fillMaxSize()) {
             val user = auth.currentUser
@@ -134,13 +137,48 @@ fun ProfileScreen(auth: AuthViewModel) {
                     OutlinedButton(onClick = { auth.signOut() }, modifier = Modifier.fillMaxWidth()) {
                         Text("Sign Out", color = Brand.Terracotta)
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { confirmDelete = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !auth.working,
+                    ) {
+                        Text("Delete Account", color = Brand.Terracotta)
+                    }
+                    deleteError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Text(it, color = Brand.Terracotta, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center)
+                    }
                     Spacer(Modifier.height(12.dp))
-                    Text("Potluck v1.0", style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk)
+                    Text("Potluck v1.1", style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk)
                 }
             }
         }
     }
     if (showAuth) AuthSheet(auth) { showAuth = false }
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text("Delete account?") },
+            text = { Text("This permanently removes your Potluck account and signs you out on this device.") },
+            confirmButton = {
+                TextButton(
+                    enabled = !auth.working,
+                    onClick = {
+                        deleteError = null
+                        scope.launch {
+                            runCatching { auth.deleteAccount() }
+                                .onSuccess { confirmDelete = false }
+                                .onFailure { deleteError = it.message; confirmDelete = false }
+                        }
+                    },
+                ) { Text(if (auth.working) "Deleting..." else "Delete", color = Brand.Terracotta) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }, enabled = !auth.working) { Text("Cancel") }
+            },
+        )
+    }
 }
 
 @Composable

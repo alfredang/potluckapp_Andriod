@@ -4,14 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -34,7 +36,16 @@ import coil.compose.AsyncImage
 
 @Composable
 fun RemoteImage(url: String?, modifier: Modifier = Modifier, contentScale: ContentScale = ContentScale.Crop) {
-    Box(modifier.background(Brand.Sand)) {
+    Box(
+        modifier.background(Brush.linearGradient(listOf(Brand.Sand, Brand.Cream))),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Filled.Restaurant,
+            contentDescription = null,
+            tint = Brand.Golden,
+            modifier = Modifier.size(30.dp),
+        )
         AsyncImage(
             model = url,
             contentDescription = null,
@@ -45,16 +56,27 @@ fun RemoteImage(url: String?, modifier: Modifier = Modifier, contentScale: Conte
 }
 
 @Composable
-fun RatingLabel(rating: Double, count: Int? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Filled.Star, null, tint = Brand.Golden, modifier = Modifier.size(14.dp))
-        Text(
-            " ${"%.1f".format(rating)}",
-            fontWeight = FontWeight.SemiBold,
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        if (count != null && count > 0) {
-            Text("  ($count)", color = Brand.MutedInk, style = MaterialTheme.typography.bodySmall)
+fun RatingLabel(rating: Double, count: Int? = null, maxStars: Boolean = false) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+        if (maxStars) {
+            repeat(5) { index ->
+                Icon(
+                    Icons.Filled.Star,
+                    null,
+                    tint = if (index < rating.toInt()) Brand.Golden else Brand.Sand,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+        } else {
+            Icon(Icons.Filled.Star, null, tint = Brand.Golden, modifier = Modifier.size(14.dp))
+            Text(
+                "%.1f".format(rating),
+                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            if (count != null && count > 0) {
+                Text("($count)", color = Brand.MutedInk, style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
@@ -103,6 +125,22 @@ fun PrimaryButton(text: String, modifier: Modifier = Modifier, enabled: Boolean 
         colors = ButtonDefaults.buttonColors(containerColor = Brand.Terracotta, contentColor = Color.White),
     ) {
         Text(text, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 4.dp))
+    }
+}
+
+@Composable
+fun BookingBar(price: String? = null, title: String, onClick: () -> Unit) {
+    Surface(color = Color.White, shadowElevation = 8.dp) {
+        Row(
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            price?.let {
+                Text(it, style = MaterialTheme.typography.titleLarge, color = Brand.Terracotta, fontWeight = FontWeight.Bold)
+            }
+            PrimaryButton(title, Modifier.weight(1f), onClick = onClick)
+        }
     }
 }
 
