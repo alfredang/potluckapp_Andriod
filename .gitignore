@@ -27,3 +27,4 @@ play-credentials.json
 # Branding scratch
 branding/foreground.svg
 screenshots/
+.playwright-mcp/

@@ -101,9 +101,6 @@ object Api {
 
     suspend fun chef(id: String) = request("GET", "chefs/$id", Chef.serializer())
 
-    suspend fun chefReviews(chefId: String) =
-        request("GET", "reviews/chef/$chefId", ListSerializer(Review.serializer()))
-
     // ---- Menus ----
     suspend fun featuredMenus() = request("GET", "menus/featured", ListSerializer(Menu.serializer()))
 
@@ -147,6 +144,68 @@ object Api {
 
     suspend fun myBookings() =
         request("GET", "bookings", ListSerializer(Booking.serializer()), authenticated = true)
+
+    // ---- Checkout (website origin — plain JSON, no envelope) ----
+
+    private const val WEB_BASE = "https://potluckhub.io/api"
+
+    /** Creates a checkout order and returns the hosted-payment redirect URL. */
+    suspend fun createCheckout(request: CheckoutRequest): CheckoutOrder = webRequest(
+        Request.Builder()
+            .url("$WEB_BASE/checkout")
+            .post(json.encodeToString(CheckoutRequest.serializer(), request).toRequestBody(JSON_MEDIA))
+            .build(),
+        CheckoutOrder.serializer(),
+    )
+
+    /** Polls the payment status of a checkout order. */
+    suspend fun checkoutStatus(orderId: String): CheckoutStatus = webRequest(
+        Request.Builder().url("$WEB_BASE/checkout/$orderId").get().build(),
+        CheckoutStatus.serializer(),
+    )
+
+    // ---- Reviews (website origin — plain JSON, no envelope) ----
+
+    /** Fetches the diner reviews for a chef from the website. */
+    suspend fun webReviews(chefId: String): WebReviewList = webRequest(
+        Request.Builder()
+            .url("$WEB_BASE/reviews?chefId=${java.net.URLEncoder.encode(chefId, "UTF-8")}")
+            .get()
+            .build(),
+        WebReviewList.serializer(),
+    )
+
+    /** Submits a diner review; the server responds 201 with { "review": {...} }. */
+    suspend fun postWebReview(request: WebReviewRequest): WebReview = webRequest(
+        Request.Builder()
+            .url("$WEB_BASE/reviews")
+            .post(json.encodeToString(WebReviewRequest.serializer(), request).toRequestBody(JSON_MEDIA))
+            .build(),
+        WebReviewResponse.serializer(),
+    ).review
+
+    /** Website endpoints return the object directly; errors are non-2xx with { "error": "message" }. */
+    private suspend fun <T> webRequest(request: Request, serializer: KSerializer<T>): T =
+        withContext(Dispatchers.IO) {
+            val (code, text) = try {
+                client.newCall(request).execute().use { resp ->
+                    resp.code to resp.body?.string().orEmpty()
+                }
+            } catch (e: Exception) {
+                throw ApiException("Network error. Check your connection and try again.")
+            }
+            if (code !in 200..299) {
+                val msg = runCatching {
+                    json.parseToString(text)["error"]?.jsonPrimitive?.contentOrNull
+                }.getOrNull()
+                throw ApiException(msg ?: "Something went wrong.")
+            }
+            try {
+                json.decodeFromString(serializer, text)
+            } catch (e: Exception) {
+                throw ApiException("Could not read the server response.")
+            }
+        }
 
     private fun buildQuery(vararg params: Pair<String, String?>): String {
         val parts = params.filter { !it.second.isNullOrEmpty() }

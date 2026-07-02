@@ -1,5 +1,7 @@
 package io.potluckhub.app
 
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Verified
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.*
@@ -30,7 +34,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
@@ -38,12 +44,26 @@ import kotlinx.coroutines.launch
 enum class Cuisine(val slug: String, val label: String, val emoji: String) {
     Malay("malay", "Malay", "🍛"),
     Chinese("chinese", "Chinese", "🥟"),
+    Thai("thai", "Thai", "🍲"),
     Indian("indian", "Indian", "🍛"),
     Halal("halal", "Halal", "🥘"),
     Vegetarian("vegetarian", "Vegetarian", "🥗"),
     Japanese("japanese", "Japanese", "🍱"),
     Korean("korean", "Korean", "🍜"),
     Western("western", "Western", "🍝"),
+}
+
+/** Shares plain text via the system share sheet. */
+private fun shareText(context: Context, text: String) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(Intent.EXTRA_TEXT, text)
+    }
+    try {
+        context.startActivity(Intent.createChooser(intent, null))
+    } catch (_: Exception) {
+        // No app can handle the share — nothing to do.
+    }
 }
 
 @Composable
@@ -76,6 +96,7 @@ fun ExploreScreen(onChef: (Chef) -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val featuredIds = remember(featured) { featured.map { it.id }.toSet() }
 
     suspend fun reload() {
         loading = chefs.isEmpty()
@@ -151,7 +172,7 @@ fun ExploreScreen(onChef: (Chef) -> Unit) {
                     }
                 }
                 item { SectionHeader("All Home Chefs", "${chefs.size} cooks ready to host") }
-                items(chefs) { ChefRow(it, onChef) }
+                items(chefs) { ChefRow(it, isFeatured = it.id in featuredIds, onChef = onChef) }
                 if (chefs.isEmpty()) {
                     item { Text("No chefs match your filters yet.", color = Brand.MutedInk, modifier = Modifier.padding(40.dp)) }
                 }
@@ -206,11 +227,10 @@ private fun FeaturedChefCard(chef: Chef, onChef: (Chef) -> Unit) {
     Card(Modifier.width(220.dp).clickable { onChef(chef) }) {
         RemoteImage(chef.user.avatarUrl, Modifier.fillMaxWidth().height(140.dp))
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(chef.user.fullName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (chef.isVerified == true) {
-                    Spacer(Modifier.width(4.dp)); Icon(Icons.Filled.Verified, null, tint = Brand.Teal, modifier = Modifier.size(16.dp))
-                }
+            Text(chef.user.fullName, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                FeaturedPill()
+                if (chef.isVerified == true) VerifiedPill()
             }
             RatingLabel(chef.rating, chef.reviewCount)
             chef.specialties?.firstOrNull()?.let { Pill(it) }
@@ -219,16 +239,15 @@ private fun FeaturedChefCard(chef: Chef, onChef: (Chef) -> Unit) {
 }
 
 @Composable
-private fun ChefRow(chef: Chef, onChef: (Chef) -> Unit) {
+private fun ChefRow(chef: Chef, isFeatured: Boolean = false, onChef: (Chef) -> Unit) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable { onChef(chef) }) {
         Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             RemoteImage(chef.user.avatarUrl, Modifier.size(78.dp).clip(RoundedCornerShape(14.dp)))
             Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(chef.user.fullName, fontWeight = FontWeight.Bold)
-                    if (chef.isVerified == true) {
-                        Spacer(Modifier.width(4.dp)); Icon(Icons.Filled.Verified, null, tint = Brand.Teal, modifier = Modifier.size(15.dp))
-                    }
+                    if (chef.isVerified == true) VerifiedPill()
+                    if (isFeatured) FeaturedPill()
                 }
                 chef.bio?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk, maxLines = 2, overflow = TextOverflow.Ellipsis) }
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -251,24 +270,48 @@ private fun ChefRow(chef: Chef, onChef: (Chef) -> Unit) {
 @Composable
 fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
     var chef by remember { mutableStateOf<Chef?>(null) }
-    var reviews by remember { mutableStateOf<List<Review>>(emptyList()) }
+    var reviews by remember { mutableStateOf<List<WebReview>>(emptyList()) }
+    var reviewTotal by remember { mutableStateOf(0) }
+    var reviewAverage by remember { mutableStateOf(0.0) }
     var error by remember { mutableStateOf<String?>(null) }
     var bookingMenu by remember { mutableStateOf<Menu?>(null) }
+    var writeReview by remember { mutableStateOf(false) }
+    var showAuth by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     LaunchedEffect(chefId) {
         runCatching {
             chef = Api.chef(chefId)
-            reviews = runCatching { Api.chefReviews(chefId) }.getOrDefault(emptyList())
+            runCatching { Api.webReviews(chefId) }.onSuccess {
+                reviews = it.reviews
+                reviewTotal = it.total
+                reviewAverage = it.average ?: 0.0
+            }
         }.onFailure { error = it.message }
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(chef?.user?.fullName ?: "Chef") },
+                title = {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(chef?.user?.fullName ?: "Chef", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (chef?.isVerified == true) VerifiedPill()
+                    }
+                },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    chef?.let { c ->
+                        IconButton(onClick = {
+                            shareText(
+                                context,
+                                "Check out ${c.user.fullName} — home-cooked ${c.specialties?.firstOrNull() ?: "Singapore"} on Potluck 🍲 https://potluckhub.io",
+                            )
+                        }) { Icon(Icons.Filled.Share, "Share") }
+                    }
+                },
             )
         },
         bottomBar = {
@@ -290,6 +333,17 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
                 item {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                         RatingLabel(c.rating, c.reviewCount)
+                        if (c.isVerified == true) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Filled.Verified, null, tint = Brand.Teal, modifier = Modifier.size(14.dp))
+                                Text(
+                                    "Identity & kitchen verified by Potluck (site visit)",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Brand.Teal,
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
                         c.bio?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
                         c.specialties?.takeIf { it.isNotEmpty() }?.let { sp ->
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -303,10 +357,31 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
                     item { Spacer(Modifier.height(8.dp)) }
                     items(menus) { MenuRow(it) { bookingMenu = it } }
                 }
-                if (reviews.isNotEmpty()) {
-                    item { Spacer(Modifier.height(8.dp)); SectionHeader("Reviews", "What diners are saying") }
-                    item { RatingSummary(c.rating, c.reviewCount) }
-                    items(reviews.take(8)) { ReviewCard(it) }
+                item { Spacer(Modifier.height(8.dp)); SectionHeader("Reviews", "What diners are saying") }
+                item {
+                    OutlinedButton(
+                        onClick = { if (auth.isLoggedIn) writeReview = true else showAuth = true },
+                        shape = RoundedCornerShape(14.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    ) {
+                        Icon(Icons.Filled.Star, null, tint = Brand.Golden, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Write a Review", color = Brand.Teal, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (reviewTotal > 0) {
+                    item { RatingSummary(reviewAverage, reviewTotal) }
+                }
+                items(reviews) { ReviewCard(it) }
+                if (reviews.isEmpty()) {
+                    item {
+                        Text(
+                            "No reviews yet — be the first to share your experience.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Brand.MutedInk,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                        )
+                    }
                 }
             }
         }
@@ -317,6 +392,20 @@ fun ChefDetailScreen(chefId: String, auth: AuthViewModel, onBack: () -> Unit) {
             BookingSheet(chefName = c.user.fullName, menu = menu, auth = auth) { bookingMenu = null }
         }
     }
+    if (writeReview) chef?.let { c ->
+        WriteReviewSheet(
+            chefId = c.id,
+            chefName = c.user.fullName,
+            auth = auth,
+            onSubmitted = { r ->
+                reviews = listOf(r) + reviews
+                reviewAverage = ((reviewAverage * reviewTotal) + r.rating) / (reviewTotal + 1)
+                reviewTotal += 1
+            },
+            onDismiss = { writeReview = false },
+        )
+    }
+    if (showAuth) AuthSheet(auth) { showAuth = false }
 }
 
 @Composable
@@ -337,26 +426,132 @@ private fun MenuRow(menu: Menu, onBook: () -> Unit) {
 }
 
 @Composable
-private fun ReviewCard(review: Review) {
+private fun ReviewCard(review: WebReview) {
     Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Avatar(review.customer?.avatarUrl, initialsOf(review.customer?.fullName ?: "P"), 36)
+                Avatar(null, initialsOf(review.authorName.ifBlank { "Potluck Diner" }), 36)
                 Column(Modifier.weight(1f)) {
-                    Text(review.customer?.fullName ?: "Diner", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                    review.menu?.name?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.MutedInk) }
+                    Text(review.authorName.ifBlank { "Diner" }, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                    if (review.verifiedBooking) {
+                        Text("Verified booking", style = MaterialTheme.typography.labelSmall, color = Brand.Teal, fontWeight = FontWeight.Medium)
+                    }
                 }
                 RatingLabel(review.rating.toDouble(), maxStars = true)
             }
-            review.title?.let { Text(it, fontWeight = FontWeight.SemiBold) }
-            review.comment?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-            review.chefResponse?.takeIf { it.isNotBlank() }?.let {
-                Surface(color = Brand.Teal.copy(alpha = 0.08f), shape = RoundedCornerShape(10.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text("Chef's reply", style = MaterialTheme.typography.labelMedium, color = Brand.Teal, fontWeight = FontWeight.SemiBold)
-                        Text(it, style = MaterialTheme.typography.bodySmall, color = Brand.Ink)
+            review.title?.takeIf { it.isNotBlank() }?.let { Text(it, fontWeight = FontWeight.SemiBold) }
+            Text(review.body, style = MaterialTheme.typography.bodyMedium)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WriteReviewSheet(
+    chefId: String,
+    chefName: String,
+    auth: AuthViewModel,
+    onSubmitted: (WebReview) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    var rating by remember { mutableStateOf(5) }
+    var title by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var thanks by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Brand.Background) {
+        if (thanks) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 32.dp).padding(top = 12.dp, bottom = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Icon(Icons.Filled.CheckCircle, null, tint = Brand.Teal, modifier = Modifier.size(56.dp))
+                Text("Thank you!", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Your review is live — it helps other diners find $chefName.",
+                    color = Brand.MutedInk,
+                    textAlign = TextAlign.Center,
+                )
+                PrimaryButton("Done", onClick = onDismiss)
+            }
+        } else {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text("Write a Review", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("How was your experience with $chefName?", color = Brand.MutedInk)
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    repeat(5) { index ->
+                        IconButton(onClick = { rating = index + 1 }) {
+                            Icon(
+                                Icons.Filled.Star,
+                                "${index + 1} star${if (index == 0) "" else "s"}",
+                                tint = if (index < rating) Brand.Golden else Brand.Sand,
+                                modifier = Modifier.size(36.dp),
+                            )
+                        }
                     }
                 }
+                OutlinedTextField(
+                    title, { title = it },
+                    label = { Text("Title (optional)") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    body, { body = it },
+                    label = { Text("Your review") },
+                    placeholder = { Text("Share your experience — the food, the host, the vibe…") },
+                    minLines = 4,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                error?.let {
+                    Text("$it Tap Submit to try again.", color = Brand.Terracotta, style = MaterialTheme.typography.bodySmall)
+                }
+                PrimaryButton(
+                    text = if (sending) "Sending…" else "Submit Review",
+                    enabled = body.trim().length >= 10 && !sending,
+                ) {
+                    val user = auth.currentUser ?: return@PrimaryButton
+                    error = null
+                    sending = true
+                    scope.launch {
+                        runCatching {
+                            Api.postWebReview(
+                                WebReviewRequest(
+                                    chefId = chefId,
+                                    authorName = user.fullName,
+                                    authorEmail = user.email.ifBlank { null },
+                                    rating = rating,
+                                    title = title.trim().ifBlank { null },
+                                    body = body.trim(),
+                                    platform = "android",
+                                )
+                            )
+                        }.onSuccess { review ->
+                            onSubmitted(review)
+                            thanks = true
+                        }.onFailure { error = it.message }
+                        sending = false
+                    }
+                }
+                Text(
+                    "Reviews are public and appear on the chef's Potluck page.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Brand.MutedInk,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }
@@ -443,12 +638,23 @@ fun DishDetailScreen(menuId: String, auth: AuthViewModel, onBack: () -> Unit) {
     var menu by remember { mutableStateOf<Menu?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var booking by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     LaunchedEffect(menuId) { runCatching { menu = Api.menu(menuId) }.onFailure { error = it.message } }
 
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(menu?.name ?: "Dish", maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } })
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                actions = {
+                    menu?.let { m ->
+                        IconButton(onClick = {
+                            shareText(
+                                context,
+                                "${m.name} by ${m.chef?.user?.fullName ?: "a Potluck home chef"} on Potluck 🍲 https://potluckhub.io",
+                            )
+                        }) { Icon(Icons.Filled.Share, "Share") }
+                    }
+                })
         },
         bottomBar = {
             menu?.let { BookingBar(price = it.displayPrice, title = "Request This Dish") { booking = true } }

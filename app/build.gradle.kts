@@ -13,8 +13,8 @@ android {
         applicationId = "io.potluckhub.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 110
-        versionName = "1.1"
+        versionCode = 130
+        versionName = "1.3"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -42,7 +42,10 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
@@ -62,6 +65,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.5")
+    implementation("androidx.browser:browser:1.8.0")
 
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")

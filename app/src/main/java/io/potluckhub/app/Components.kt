@@ -14,6 +14,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Verified
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -95,6 +97,28 @@ fun Pill(text: String, filled: Boolean = false) {
         )
     }
 }
+
+@Composable
+fun BadgePill(icon: ImageVector, text: String, color: Color) {
+    Surface(color = color.copy(alpha = 0.12f), shape = CircleShape) {
+        Row(
+            Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(12.dp))
+            Text(text, color = color, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/** Compact teal pill shown wherever a Potluck-verified chef renders. */
+@Composable
+fun VerifiedPill() = BadgePill(Icons.Filled.Verified, "Verified", Brand.Teal)
+
+/** Small golden pill for chefs in the featured set. */
+@Composable
+fun FeaturedPill() = BadgePill(Icons.Filled.Star, "Featured", Brand.Golden)
 
 @Composable
 fun Avatar(url: String?, initials: String, size: Int = 44) {

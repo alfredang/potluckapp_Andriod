@@ -163,6 +163,88 @@ data class Booking(
     val status: String? = null,
 )
 
+// ---- Checkout (website endpoints — plain JSON, no envelope) ----
+
+@Serializable
+data class CheckoutRequest(
+    val menuId: String,
+    val guests: Int,
+    val scheduledDate: String,
+    val scheduledTime: String,
+    val specialRequests: String? = null,
+    val customerName: String,
+    val customerEmail: String,
+    val customerPhone: String? = null,
+    val provider: String,
+    val platform: String,
+)
+
+@Serializable
+data class CheckoutAmount(
+    val subtotal: Int = 0,
+    val platformFee: Int = 0,
+    val total: Int = 0,
+    val currency: String = "SGD",
+)
+
+@Serializable
+data class CheckoutOrder(
+    val orderId: String,
+    val orderNumber: String = "",
+    val amount: CheckoutAmount = CheckoutAmount(),
+    val redirectUrl: String = "",
+)
+
+@Serializable
+data class CheckoutStatus(
+    val orderId: String = "",
+    val orderNumber: String = "",
+    val status: String = "pending_payment",
+    val provider: String? = null,
+    val total: Int = 0,
+    val currency: String = "SGD",
+    val menuName: String? = null,
+    val chefName: String? = null,
+    val scheduledDate: String? = null,
+    val scheduledTime: String? = null,
+    val guests: Int = 0,
+    val paidAt: String? = null,
+)
+
+// ---- Reviews (website endpoints — plain JSON, no envelope) ----
+
+@Serializable
+data class WebReview(
+    val id: String,
+    val authorName: String = "",
+    val rating: Int = 0,
+    val title: String? = null,
+    val body: String = "",
+    val createdAt: String? = null,
+    val verifiedBooking: Boolean = false,
+)
+
+@Serializable
+data class WebReviewList(
+    val reviews: List<WebReview> = emptyList(),
+    val total: Int = 0,
+    @Serializable(with = FlexDoubleSerializer::class) val average: Double? = null,
+)
+
+@Serializable
+data class WebReviewRequest(
+    val chefId: String,
+    val authorName: String,
+    val authorEmail: String? = null,
+    val rating: Int,
+    val title: String? = null,
+    val body: String,
+    val platform: String = "android",
+)
+
+@Serializable
+data class WebReviewResponse(val review: WebReview)
+
 /** Prices are stored in cents. */
 fun money(cents: Int, currency: String = "SGD"): String {
     val symbol = if (currency == "SGD") "S$" else "$"

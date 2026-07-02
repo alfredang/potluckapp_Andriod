@@ -1,5 +1,6 @@
 package io.potluckhub.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,6 +36,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             PotluckTheme { PotluckApp() }
         }
+    }
+
+    // potluck://checkout/result deep link just brings the app forward — the
+    // checkout sheet re-polls the order status on ON_RESUME.
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
     }
 }
 

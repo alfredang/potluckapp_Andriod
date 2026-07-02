@@ -26,8 +26,10 @@ browse their dishes, and book authentic home-cooked dining experiences.
 
 - **Explore home chefs** — featured carousel, full directory, search, and nine cuisine filters (Chinese, Western, Thai, Japanese, Korean, Malay, Indian, Halal, Vegetarian)
 - **Browse dishes** — a photo-rich grid of menus across every chef, with prices and ratings
-- **Chef profiles** — bio, specialties, full menu, and verified diner reviews
-- **Booking flow** — pick guests and special requests with a live price breakdown (incl. service fee)
+- **Verified & Featured chefs** — trust badges backed by Potluck's in-person site-visit verification ([how it works](https://potluckhub.io/chef-verification)), with featured chefs highlighted
+- **Chef profiles** — bio, specialties, full menu, and live guest reviews
+- **Write reviews & share** — rate a chef (1-5 stars), write a review, and share chefs & dishes via the Android share sheet
+- **Booking & online payment** — pick date and guests, then pay in-app by credit/debit card (Stripe), PayPal, or PayNow (HitPay) through a secure hosted checkout (Chrome Custom Tabs) with live order-status polling
 - **Accounts** — register / sign in against the live API, tokens persisted across launches
 - **My bookings** — track requested and confirmed dining experiences
 
@@ -41,7 +43,7 @@ browse their dishes, and book authentic home-cooked dining experiences.
 | Images | Coil |
 | Async | Kotlin Coroutines |
 | Build | Gradle 8.11 (AGP 8.7), Android Gradle plugin |
-| Backend | Potluck REST API — `https://api.potluckhub.io/api/v1` |
+| Backend | Potluck REST API — `https://api.potluckhub.io/api/v1` (catalog/auth) + `https://potluckhub.io/api` (checkout & reviews, shared with the website and iOS app) |
 
 ## Architecture
 
@@ -50,11 +52,11 @@ app/src/main/java/io/potluckhub/app/
 ├── MainActivity.kt   # NavHost + bottom navigation
 ├── Theme.kt          # Brand palette + Material 3 color scheme
 ├── Models.kt         # Serializable models (+ FlexDouble for string|number ratings)
-├── Api.kt            # OkHttp client + Potluck endpoints (unwraps {success,data})
+├── Api.kt            # OkHttp client + Potluck endpoints, checkout & reviews (web origin)
 ├── Auth.kt           # AuthViewModel + token persistence
 ├── Components.kt     # Reusable composables (RemoteImage, RatingLabel, Pill…)
 ├── Screens.kt        # Explore, Chef detail, Dishes, Dish detail
-└── Account.kt        # Bookings, Profile, Auth & Booking bottom sheets
+└── Account.kt        # Bookings, Profile, Auth & Booking/checkout bottom sheets
 ```
 
 Prices are stored as integer **cents**; ratings arrive as a String at chef level but a
@@ -77,12 +79,17 @@ The app points at the production API out of the box, so chefs and dishes load im
 ## Release Build
 
 ```bash
-# Signed Android App Bundle for Google Play
+# Signed Android App Bundle for Google Play (signing env in keystore/keystore.env — not committed)
+set -a; source keystore/keystore.env; set +a
+export POTLUCK_KEYSTORE="$PWD/keystore/potluck-release.jks"
 ./gradlew :app:bundleRelease   # -> app/build/outputs/bundle/release/app-release.aab
+
+# Upload to Google Play (production) + submit for review
+python3 scripts/play_upload.py
 ```
 
 - **Application ID:** `io.potluckhub.app`
-- **Version:** 1.1 (versionCode 110)
+- **Version:** 1.3 (versionCode 130)
 
 ## License
 
